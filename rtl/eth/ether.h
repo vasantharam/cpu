@@ -1,0 +1,76 @@
+#ifndef __REG_ether__
+#define __REG_ether__
+
+/* Reigster REG_ether_COMMAND */
+#define REG_ether_COMMAND 0
+#define REG_ether_COMMAND_CMD_NAME "CMD"
+#define REG_ether_COMMAND_CMD_SHIFT "0"
+#define REG_ether_COMMAND_CMD_MASK "1"
+
+/* Reigster REG_ether_READ_FRAME_BASE */
+#define REG_ether_READ_FRAME_BASE 1
+#define REG_ether_READ_FRAME_BASE_ADDR_NAME "ADDR"
+#define REG_ether_READ_FRAME_BASE_ADDR_SHIFT "0"
+#define REG_ether_READ_FRAME_BASE_ADDR_MASK "1"
+
+/* Reigster REG_ether_READ_FRAME_RD_PTR */
+#define REG_ether_READ_FRAME_RD_PTR 2
+#define REG_ether_READ_FRAME_RD_PTR_PTR_NAME "PTR"
+#define REG_ether_READ_FRAME_RD_PTR_PTR_SHIFT "0"
+#define REG_ether_READ_FRAME_RD_PTR_PTR_MASK "1"
+
+/* Reigster REG_ether_READ_FRAME_WR_PTR */
+#define REG_ether_READ_FRAME_WR_PTR 3
+#define REG_ether_READ_FRAME_WR_PTR_PTR_NAME "PTR"
+#define REG_ether_READ_FRAME_WR_PTR_PTR_SHIFT "0"
+#define REG_ether_READ_FRAME_WR_PTR_PTR_MASK "1"
+
+/* Reigster REG_ether_READ_FRAME_SIZE */
+#define REG_ether_READ_FRAME_SIZE 4
+#define REG_ether_READ_FRAME_SIZE_SIZE_NAME "SIZE"
+#define REG_ether_READ_FRAME_SIZE_SIZE_SHIFT "0"
+#define REG_ether_READ_FRAME_SIZE_SIZE_MASK "1"
+
+/* Reigster REG_ether_WRITE_FRAME_BASE */
+#define REG_ether_WRITE_FRAME_BASE 5
+#define REG_ether_WRITE_FRAME_BASE_ADDR_NAME "ADDR"
+#define REG_ether_WRITE_FRAME_BASE_ADDR_SHIFT "0"
+#define REG_ether_WRITE_FRAME_BASE_ADDR_MASK "1"
+
+/* Reigster REG_ether_WRITE_FRAME_RD_PTR */
+#define REG_ether_WRITE_FRAME_RD_PTR 6
+#define REG_ether_WRITE_FRAME_RD_PTR_PTR_NAME "PTR"
+#define REG_ether_WRITE_FRAME_RD_PTR_PTR_SHIFT "0"
+#define REG_ether_WRITE_FRAME_RD_PTR_PTR_MASK "1"
+
+/* Reigster REG_ether_WRITE_FRAME_WR_PTR */
+#define REG_ether_WRITE_FRAME_WR_PTR 7
+#define REG_ether_WRITE_FRAME_WR_PTR_PTR_NAME "PTR"
+#define REG_ether_WRITE_FRAME_WR_PTR_PTR_SHIFT "0"
+#define REG_ether_WRITE_FRAME_WR_PTR_PTR_MASK "1"
+
+/* Reigster REG_ether_WRITE_FRAME_SIZE */
+#define REG_ether_WRITE_FRAME_SIZE 8
+#define REG_ether_WRITE_FRAME_SIZE_SIZE_NAME "SIZE"
+#define REG_ether_WRITE_FRAME_SIZE_SIZE_SHIFT "0"
+#define REG_ether_WRITE_FRAME_SIZE_SIZE_MASK "1"
+
+/* Reigster REG_ether_STATUS */
+#define REG_ether_STATUS 9
+#define REG_ether_STATUS_WRITER_STATE_NAME "WRITER_STATE"
+#define REG_ether_STATUS_WRITER_STATE_SHIFT "3"
+#define REG_ether_STATUS_WRITER_STATE_MASK "64"
+
+#define REG_ether_STATUS_READER_STATE_NAME "READER_STATE"
+#define REG_ether_STATUS_READER_STATE_SHIFT "3"
+#define REG_ether_STATUS_READER_STATE_MASK "8"
+
+#define REG_ether_STATUS_DATA_TRANSFER_STATE_NAME "DATA_TRANSFER_STATE"
+#define REG_ether_STATUS_DATA_TRANSFER_STATE_SHIFT "3"
+#define REG_ether_STATUS_DATA_TRANSFER_STATE_MASK "8"
+
+#define REG_ether_STATUS_TX_DRIVER_STATE_NAME "TX_DRIVER_STATE"
+#define REG_ether_STATUS_TX_DRIVER_STATE_SHIFT "3"
+#define REG_ether_STATUS_TX_DRIVER_STATE_MASK "8"
+
+#endif

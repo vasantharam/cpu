@@ -1,0 +1,57 @@
+Ether registers module . Need a module generator from AMAP spec.
+writer
+reader
+data transfer
+
+/* works with circular buffers in memory */
+Registers:
+    command /* start operation , stop operation? */
+    read frame base address
+    read frame read pointer (read by SW, pointer update by HW)
+    read frame write pointer (read by HW, pointer update by SW)
+    read frame size
+    write frame base address
+    write frame size
+    write frame read pointer (read by HW, pointer update by HW.)
+    write frame write pointer (write by SW, pointer update by SW.)
+
+writer
+    IDLE
+    Operating
+    if (write frame not empty)
+         read from memory, send on (datatransfer FIFO), increment address 
+   
+reader
+    IDLE
+    operating
+    if (read frame available and read buffer not full)
+         write to memory. 
+
+data transfer:
+Frame boundary handling on FIFO and on memory. UDP variable length. 
+Force a fixed length  on the FIFO and on memory. UDP packet length therefore
+may get trunkated if too long. (Split to two frames?).
+
+So:
+FIFO has a width of max frame-length
+
+tx_driver:
+    IDLE
+        if write frame FIFO non empty go to send.
+    PICK ONE DATA
+        flop over the data and release the FIFO entry (ready=1)
+    Send one frame
+        /* Assume frame is already in network order ready to go? */ 
+
+/* FIFO may back pressure and UDP packets may be lost. */
+rx_driver
+    IDLE
+        if somethings on the RX.
+    Get Nibble
+        flop into the frame
+        if frame_complete Put on FIFO
+    put on FIFO
+        send to FIFO,
+        if (FIFO picked the data, got to IDLE)
+
+

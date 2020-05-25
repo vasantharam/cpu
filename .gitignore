@@ -1,7 +1,7 @@
 # some ignores came directly from: https://gist.github.com/mapedd/2045092. Thanks!
 *~
-output/*
-.*output/*
+**output/*
+**/output
 *.html
 *.log
 *.svf

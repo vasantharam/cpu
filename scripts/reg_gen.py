@@ -21,7 +21,7 @@ def csv_to_dict(csv_file_path):
 
 def get_field_shift_and_mask(register):
     separator_mask = int (register['field_separator_mask'], 0)
-
+    field_write_permissions = int (register['field_write_permissions'], 0)
     bit_pos = 0
     prev_bit_pos = 0
     ret = []
@@ -31,10 +31,19 @@ def get_field_shift_and_mask(register):
         while (separator_mask & 1 != 1):
             separator_mask = separator_mask >> 1
             bit_pos = bit_pos + 1
+        else: separator_mask = separator_mask >> 1
+        print ("sp, bp")
+        print (separator_mask, bit_pos)
         d['shift'] = bit_pos
         d['mask'] = (1 << (bit_pos+1  - prev_bit_pos) - 1) << bit_pos
+        d['writable'] = field_write_permissions & 1
+        d['msb'] = bit_pos
+        d['lsb'] = prev_bit_pos
+        
+        field_write_permissions = field_write_permissions >> 1
         prev_bit_pos = bit_pos
         ret.append(d)
+    register['fields'] = ret
     return ret
     
 
@@ -43,7 +52,9 @@ def generate_register_slave(registers, name):
     f.write( """/* Note: This is a auto-generated file. 
  * Do not modify directly. 
  * Current Working Directory : %s 
- * Generation command line: %s\n """ % (os.getcwd() , ' '.join(sys.argv) + "\n*/\n\n\n"))
+ * Generation command line: %s """ % (os.getcwd() , ' '.join(sys.argv) + "\n*/\n\n\n"))
+    f.write("`include %s_reg_slave.vh" %name)
+
     ftemplate = open("reg_slave.template", "r")
     output_reg_registers = ""
     reset_value_assignments = ""
@@ -53,6 +64,7 @@ def generate_register_slave(registers, name):
         print (i)
         output_reg_registers = output_reg_registers + "output reg [15:0] reg_%s_%s, " %(name, i['name'])
         reset_value_assignments = reset_value_assignments + "        reg_%s_%s <= %s\n" % (name , i['name'], i['reset_value'])
+
         write_register_case_statements = write_register_case_statements + """                8'd%s: 
                     reg_%s_%s <= wdata;
                     wrsp_slverr <= 0;
@@ -82,25 +94,49 @@ def generate_c_header(registers, name):
         print ("/* Reigster REG_%s_%s */" %(name, i['name']), file=f)
         print ("#define REG_%s_%s %s" % (name, i['name'], i['offset']), file=f)
 
-        fields = get_field_shift_and_mask(i)
+        fields = i['fields'] 
         for field in fields:
+            
             print ('#define REG_%s_%s_%s_NAME "%s"' % (name, i['name'], field['field_name'], field['field_name']), file=f)
             print ('#define REG_%s_%s_%s_SHIFT "%s"' % (name, i['name'], field['field_name'], field['shift']), file=f)
             print ('#define REG_%s_%s_%s_MASK "%s"' % (name, i['name'], field['field_name'], field['mask']), file=f)
             print ("", file=f)
        
     print ("#endif", file=f)
-     
+    
+def generate_verilog_header(registers, name):
+#BEGIN 
+    f = open("output/%s.vh" % name, "w")
+    print ("", file=f)
+    for i in registers:
+        print ("/* Reigster REG_%s_%s */" %(name, i['name']), file=f)
+        print ("/* REG_%s_%s %s */" % (name, i['name'], i['offset']), file=f)
+
+        fields = i['fields'] 
+
+        for field in fields:
+            print ('`define REG_%s_%s_%s "%s"' % (name, i['name'], field['field_name'], "[" + str(field['msb'])+":" + str(field['lsb'])+ "]"), file=f)
+            print ("", file=f)
+       
+    print ("#endif", file=f)
+    
+
+#ENDDEF
+
 def reg_gen(csv_file_path):
     try:
         os.mkdir("output")
     except:
         pass
     registers = list(csv_to_dict(csv_file_path))
-   
-    generate_c_header(registers, os.path.basename(csv_file_path).rsplit('.')[0]) 
-    generate_register_slave(registers, os.path.basename(csv_file_path).rsplit('.')[0]) 
+    for i in registers:
+        get_field_shift_and_mask(i)
     
+    ip_name = os.path.basename(csv_file_path).rsplit('.')[0]
+    
+    generate_c_header(registers, ip_name)
+    generate_register_slave(registers, ip_name) 
+    generate_verilog_header(registers, ip_name)
 
 def main():
     if (len(sys.argv) != 2):

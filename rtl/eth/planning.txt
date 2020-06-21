@@ -1,3 +1,7 @@
+Simplifying assumptions:
+ - Fixed framesize - 256 bytes
+ - No fragmenting
+
 Ether registers module . Need a module generator from AMAP spec.
 writer
 reader
@@ -16,10 +20,19 @@ Registers:
     write frame write pointer (write by SW, pointer update by SW.)
 
 writer
+    Functionality:
+        If (IDLE and write_ptr != rd_ptr) -> Fetch_from_RAM
+        If (Fetch_For_RAM && Fetch_complete)
+            send to driver -> wait_for_driver_ready
+        if (send to driver complete) -> IDLE
+
     IDLE
     Operating
     if (write frame not empty)
-         read from memory, send on (datatransfer FIFO), increment address 
+         read from memory, send on (datatransfer FIFO), increment address -> wait_for_drier_ready
+    if (wa
+
+
    
 reader
     IDLE
@@ -28,9 +41,9 @@ reader
          write to memory. 
 
 data transfer:
-Frame boundary handling on FIFO and on memory. UDP variable length. 
-Force a fixed length  on the FIFO and on memory. UDP packet length therefore
-may get trunkated if too long. (Split to two frames?).
+Frame boundary handling on FIFO and on memory. 
+Force a fixed length  on the FIFO and on memory. 
+No split frames. application layer to work with 256 byte size.
 
 So:
 FIFO has a width of max frame-length

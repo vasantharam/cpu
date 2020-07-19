@@ -1,4 +1,4 @@
-Simplifying assumptions:
+Simplifying assumptions for sprint-1:
  - Fixed framesize - 256 bytes
  - No fragmenting
 
@@ -68,3 +68,4 @@ rx_driver
         if (FIFO picked the data, got to IDLE)
 
 
+Reference Data Sheet:  http://ww1.microchip.com/downloads/en/DeviceDoc/LAN83C185-Data-Sheet-DS00002808A.pdf

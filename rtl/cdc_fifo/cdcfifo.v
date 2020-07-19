@@ -10,70 +10,114 @@ endfunction
 `define PLUSONE(Ptr) ((Ptr == (FIFO_DEPTH-1)) ? 0: (Ptr + 1))
 `define DIFF(ptr2, ptr1) ((ptr2 >= ptr1) ? (ptr2 - ptr1): (FIFO_DEPTH - ptr1 + ptr2)) 
 
-module fifo(readReady, writeReady, readValid, writeValid, writeData, readData, wrclk, rdclk rst);
+module gray_to_bcd (gray, bcd);
+    parameter MSB=7;
+    input [MSB:0] gray;
+    output [MSB:0] bcd;
+    assign  bcd[MSB] = gray[MSB];
+    generate
+    genvar i;
+    for (i=MSB-1; i>=0 ; i--)
+    begin
+        assign bcd[i] = gray[i] ^ bcd[i+1];
+    end
+    endgenerate
+endmodule
+
+module bcd_to_gray (bcd, gray);
+    parameter MSB=7;
+    output [MSB:0] gray;
+    input [MSB:0] bcd;
+    assign gray[MSB:0] = bcd[MSB:0] ^ {1'b0, bcd[MSB:1]};
+endmodule
+
+/* Write clk is faster than read clk */
+module cdcfifo(readReady, writeReady, readValid, writeValid, writeData, readData, rdclk, wrclk, rst);
     parameter FIFO_DEPTH = 255; /* keeping bit count 8 given space for pointer overflow */
     parameter FIFO_WIDTH = 8;
-    input readValid, writeValid, clk, rst;
+    parameter MSB = $clog2(FIFO_DEPTH)-1;
+    input readValid, writeValid, rdclk, wrclk, rst;
     input [FIFO_WIDTH-1:0] writeData;
     output reg readReady, writeReady;
     output reg [FIFO_WIDTH-1:0] readData;
-    reg [$clog2(FIFO_DEPTH):0] readPtr;
-    reg [$clog2(FIFO_DEPTH):0] writePtr;
+    reg [MSB:0] readPtr;
+    reg [MSB:0] readPtr_converted;
+    reg [MSB:0] writePtr;
+    wire [MSB:0] readPtr_gray;
+    wire [MSB:0] writePtr_gray;
     reg empty, full, almost_full, almost_empty;
+    reg empty_prev, full_prev, almost_full_prev, almost_empty_prev;
     reg [ FIFO_WIDTH-1:0 ] array [ FIFO_DEPTH-1:0];
-    assign empty = (readPtr == writePtr)?  1:0;
-    assign full = ( `DIFF(writePtr, readPtr) == FIFO_DEPTH ) ? 1: 0; 
-    assign almost_full = ( `DIFF(writePtr, readPtr) == FIFO_DEPTH - 1) ? 1: 0; 
-    assign almost_empty = (`DIFF(writePtr, readPtr) == 1)? 1: 0; 
-    reg okayToRead; 
-    reg okayToWrite; 
-    assign okayToRead = ((!empty&&readValid) || ( empty && writeValid && readValid && readReady && writeReady )) ? 1:0;
-    assign okayToWrite = ((!full &&  writeValid) || ( full && readValid && writeValid && readReady && writeReady )) ? 1:0;
 
-
-    always @(posedge clk)
+    bcd_to_gray #(.MSB(MSB)) b2g(readPtr, readPtr_gray);
+    gray_to_bcd #(.MSB(MSB)) g2b(readPtr_gray, readPtr_converted);
+    /* Reader */
+    always @(posedge rdclk)
+    begin
+        if (readReady && readValid)
+        begin
+            if (almost_empty_prev || empty)
+                readReady <= 0;
+            else
+            begin
+                readReady <= 1;
+                readPtr <= readPtr + 1;
+                readData <= array [readPtr];
+            end
+        end
+        else
+        begin
+            if (!empty_prev && !empty)
+            begin
+                readReady <= 1;
+                readData <= array [readPtr];
+            end
+        end
+    end
+    /* Writer */
+    always @(posedge wrclk)
+    begin
+        if (writeReady && writeValid)
+        begin
+            if (full) $error("assert_fail: FIFO cant be full and have writeReady !");
+            if (almost_full)
+            begin
+                writeReady <= 0;
+            end
+            else writeReady <= 1;
+            array [writePtr] <= writeData;
+            writePtr = writePtr + 1;
+        end
+        else
+        begin
+            if (!full) writeReady <= 1;
+            else writeReady <= 0;
+        end
+    end
+    /* status detection and init */
+    always @(posedge wrclk)
     begin
         if (rst) 
         begin
             readPtr <= 0;
             writePtr <= 0;
-            readReady <= 0;
-            writeReady <= 1;
         end
         else
         begin
-            case({okayToRead, okayToWrite})
-                2'b00:
-                    readData <= array[readPtr];
-                2'b01:
-                    begin
-                    if (readPtr == writePtr) readData <= writeData;
-                    else readData <= array[readPtr];
-                    writePtr <= `PLUSONE(writePtr);
-                    array[writePtr] <= writeData;
-                    end
-                2'b10:
-                    begin
-                    readPtr <= `PLUSONE(readPtr);
-                    readData <= array[`PLUSONE(readPtr)];
-                    end
-                2'b11:
-                    begin
-                    if ((readPtr == writePtr) || (`PLUSONE(readPtr) == writePtr )) readData <= writeData;
-                    else readData <= array[`PLUSONE(readPtr)];
-                    readPtr <= `PLUSONE(readPtr);
-                    writePtr <= `PLUSONE(writePtr);
-                    array[writePtr] <= writeData; 
-                    end
-            endcase
-            if (full || (almost_full && okayToWrite && !okayToRead)) writeReady <= 0; 
-            else writeReady <= 1;
-            if (almost_empty && (okayToRead && !okayToWrite)) readReady <= 0; 
-            else if (empty && !okayToWrite) readReady <= 0;
-            else readReady <= 1;
+            empty_prev <= empty;
+            full_prev <= full;
+            almost_full_prev <= almost_full;
+            almost_empty_prev <= almost_empty;
+
+            empty <= (writePtr == readPtr_converted) ? 1:0;
+            almost_empty <= (`DIFF(writePtr, readPtr_converted) == 1) ? 1: 0;
+            full <= ( `DIFF(writePtr, readPtr) == FIFO_DEPTH ) ? 1: 0; 
+            almost_full <= ( `DIFF(writePtr, readPtr) == FIFO_DEPTH - 1) ? 1: 0; 
+         
         end        
     end
 
 endmodule
+
 
 

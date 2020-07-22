@@ -54,29 +54,56 @@ module cdcfifo(readReady, writeReady, readValid, writeValid, writeData, readData
     /* Reader */
     always @(posedge rdclk)
     begin
+        if (rst)
+        begin
+            readPtr <= 0;
+        end
+        else begin
         if (readReady && readValid)
         begin
-            if (almost_empty_prev || empty)
+            /* Introduces latency at low fifo occupancy to avoid metastability
+               TBD: reduce latency.
+             */
+            if (almost_empty || almost_empty_prev || empty || empty_prev)
+            begin
                 readReady <= 0;
+                readPtr <= `PLUSONE(readPtr);
+                readData <= array [`PLUSONE(readPtr)];
+            end
             else
             begin
                 readReady <= 1;
-                readPtr <= readPtr + 1;
-                readData <= array [readPtr];
+                readPtr <= `PLUSONE(readPtr);
+                readData <= array [`PLUSONE(readPtr)];
             end
         end
         else
         begin
-            if (!empty_prev && !empty)
+            if (!empty_prev && !empty && (!(almost_empty_prev==0 && almost_empty==1)))
             begin
+                /* if almost_empty_prev==0 and almost_empty==1, the data is
+                 * being written to the RAM array, need to wait till next
+                 * cycle. Next cycle, almost_empty_prev will also be 1 and
+                 * data is in RAM. */
                 readReady <= 1;
                 readData <= array [readPtr];
             end
+            else
+            begin
+                readReady <= 0;
+                readData <= 0;
+            end
+        end
         end
     end
     /* Writer */
     always @(posedge wrclk)
     begin
+        if (rst)
+        begin
+            writePtr <= 0;
+        end
+        else begin
         if (writeReady && writeValid)
         begin
             if (full) $error("assert_fail: FIFO cant be full and have writeReady !");
@@ -86,21 +113,20 @@ module cdcfifo(readReady, writeReady, readValid, writeValid, writeData, readData
             end
             else writeReady <= 1;
             array [writePtr] <= writeData;
-            writePtr = writePtr + 1;
+            writePtr <= `PLUSONE(writePtr) ;
         end
         else
         begin
             if (!full) writeReady <= 1;
             else writeReady <= 0;
         end
+        end //rst else
     end
     /* status detection and init */
     always @(posedge wrclk)
     begin
         if (rst) 
         begin
-            readPtr <= 0;
-            writePtr <= 0;
         end
         else
         begin

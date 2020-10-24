@@ -5,8 +5,9 @@
 `define WR_STATE_FETCH_FRAME_WAIT_FOR_READY 2
 `define WR_STATE_WAIT_SEND_DONE 3
 
+`include "eth_defs.vh"
 module  eth_writer 
-    #(parameter DATA_WIDTH_MSB=15, parameter ETH_MAX_FRAME_SIZE=256) 
+     
       (reg_ether_WRITE_FRAME_BASE, 
        reg_ether_WRITE_FRAME_RD_PTR, 
        reg_ether_WRITE_FRAME_WR_PTR, 
@@ -15,7 +16,10 @@ module  eth_writer
 
        ram_rd_data,  ram_rd_valid,  ram_rd_addr,  ram_rd_ready,  
        
-       tx_drv_wr_data,  tx_drv_wr_valid,  tx_drv_wr_ready, clk, rst )
+       tx_drv_wr_data,  tx_drv_wr_valid,  tx_drv_wr_ready, clk, rst );
+parameter DATA_WIDTH_MSB=15; 
+parameter ETH_MAX_FRAME_SIZE=256;
+parameter ADDR_WIDTH_MSB=15;
 /* reg slave internal interface */
 input [DATA_WIDTH_MSB:0] reg_ether_WRITE_FRAME_BASE; 
 inout [DATA_WIDTH_MSB:0]  reg_ether_WRITE_FRAME_RD_PTR;
@@ -25,7 +29,7 @@ output reg [3:0] write_fsm_state;
 /* Ram interface */
 input [DATA_WIDTH_MSB:0] ram_rd_data;
 output reg ram_rd_valid; 
-output reg ram_rd_addr; 
+output reg [ADDR_WIDTH_MSB:0] ram_rd_addr; 
 input ram_rd_ready;
 
 /* tx_drv internal interface */
@@ -61,10 +65,10 @@ begin
             end
         `WR_STATE_FETCH_FRAME_WAIT_FOR_READY:
             begin
-                assert (ram_rd_valid) else $error("Unexpected FSM state - WAIT_FOR_READY");
+//                assert (ram_rd_valid) else $error("Unexpected FSM state - WAIT_FOR_READY");
                 if (ram_rd_ready == 1 && ram_rd_valid == 1)
                 begin
-                    rd_ptr <= rd_ptr + (DATA_WIDTH_MSB+1)/8
+                    rd_ptr <= rd_ptr + (DATA_WIDTH_MSB+1)/8;
                     tx_drv_wr_data[(ETH_MAX_FRAME_SIZE - frame_size_counter):(ETH_MAX_FRAME_SIZE - DATA_WIDTH_MSB - frame_size_counter)] <= ram_rd_data;
                 
                     frame_size_counter <= frame_size_counter + (DATA_WIDTH_MSB+1)/8; 
@@ -80,6 +84,7 @@ begin
                     begin
                         ram_rd_addr <= reg_ether_WRITE_FRAME_BASE + rd_ptr;
                     end
+				    end
             end
         `WR_STATE_WAIT_SEND_DONE:
             begin
@@ -89,6 +94,7 @@ begin
                     write_fsm_state <= `WR_STATE_IDLE;
                 end
             end
+        endcase
     end
 end
 

@@ -1,8 +1,10 @@
+`include "eth_defs.vh"
 module ether_tx_driver(
-    #(parameter DATA_WIDTH_MSB=15, parameter ETH_MAX_FRAME_SIZE=256) 
     tx_drv_wr_data, tx_drv_wr_valid, tx_drv_wr_ready, 
     mii_txd, mii_tx_en, mii_tx_clk, mii_tx_err,
     clk, rst);
+	 parameter DATA_WIDTH_MSB=15;
+	 parameter ETH_MAX_FRAME_SIZE=256;
     input [ETH_MAX_FRAME_SIZE-1:0] tx_drv_wr_data;
     input tx_drv_wr_valid;
     output tx_drv_wr_ready;
@@ -14,7 +16,7 @@ module ether_tx_driver(
     /* ports for fifo(readReady, writeReady, readValid, writeValid, writeData, readData, clk, rst); */
     /* TBD: ERROR: Replace with async fifo to read using mii_tx_clk and write using clk */
 
-    fifo tx_driver_fifo (<TBD>, tx_drv_wr_ready, <TBD>, tx_drv_wr_valid, tx_drv_wr_data, tx_fifo_rd_data , clk, rst); 
+    fifo tx_driver_fifo (tx_fifo_rd_valid, tx_drv_wr_ready, tx_fifo_rd_ready, tx_drv_wr_valid, tx_drv_wr_data, tx_fifo_rd_data , mii_tx_clk, clk, rst); 
 
     always @(posedge mii_tx_clk)
     begin
@@ -43,22 +45,20 @@ module ether_tx_driver(
                        /* Indicate frame error in error register  - Invalid preamble*/
                        // TBD
                    end
-               else if (frame_nibble_counter == `ETH_FRAME_PREAMBLE_END &&
-                   frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-3] != 4'b1011))
+               else if ((frame_nibble_counter == `ETH_FRAME_PREAMBLE_END) &&
+                   (frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-3] != 4'b1011))
                    begin
                        /* Indicate frame error in error register - Invalid preamble */
                        // TBD
                    end
-                  
-               end
-               else if (frame_nibble_counter == `ETHER_FRAME_TYPEMSB &&
-                   (frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-3] != 4'h08))
+               else if ((frame_nibble_counter == `ETH_FRAME_TYPE_MSB) &&
+                   (frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-7] != 8'h08))
                    begin
                        /* Indicate frame error in error register - Invalid ether type only IPv4 supported*/
                        // TBD
                    end
-               else if (frame_nibble_counter == `ETHER_FRAME_TYPELSB &&
-                   (frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-3] != 4'b00))
+               else if ((frame_nibble_counter == `ETH_FRAME_TYPE_LSB) &&
+                   (frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-7] != 8'h00))
                    begin
                        /* Indicate frame error in error register - Invalid ether type only IPv4 supported */
                        // TBD
@@ -74,8 +74,9 @@ module ether_tx_driver(
                    // Put the next nibble out
                    mii_txd <= frame_to_send[ETH_MAX_FRAME_SIZE-1-frame_nibble_counter:ETH_MAX_FRAME_SIZE-1-frame_nibble_counter-3];
                    mii_tx_en <= 1;
+						 frame_nibble_counter <= frame_nibble_counter + 1;
                end
-          
+           endcase   
        end 
     end
 endmodule

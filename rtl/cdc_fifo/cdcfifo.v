@@ -11,13 +11,13 @@ endfunction
 `define DIFF(ptr2, ptr1) ((ptr2 >= ptr1) ? (ptr2 - ptr1): (FIFO_DEPTH - ptr1 + ptr2)) 
 
 module gray_to_bcd (gray, bcd);
-    parameter MSB=7;
+    parameter MSB=3'h7;
     input [MSB:0] gray;
     output [MSB:0] bcd;
     assign  bcd[MSB] = gray[MSB];
     generate
     genvar i;
-    for (i=MSB-1; i>=0 ; i--)
+    for (i=MSB-1; i>=0 ; i=i-1)
     begin
         assign bcd[i] = gray[i] ^ bcd[i+1];
     end

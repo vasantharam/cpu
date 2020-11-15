@@ -1,0 +1,40 @@
+[
+  {
+    "class":"firrtl.transforms.CombinationalPath",
+    "sink":"~adder|adder>io_res",
+    "sources":[
+      "~adder|adder>io_a",
+      "~adder|adder>io_b"
+    ]
+  },
+  {
+    "class":"firrtl.transforms.CombinationalPath",
+    "sink":"~adder|adder>io_carry",
+    "sources":[
+      "~adder|adder>io_a",
+      "~adder|adder>io_b"
+    ]
+  },
+  {
+    "class":"logger.LogLevelAnnotation",
+    "globalLogLevel":{
+      
+    }
+  },
+  {
+    "class":"firrtl.options.TargetDirAnnotation",
+    "directory":"test_run_dir/Hello1437816011"
+  },
+  {
+    "class":"firrtl.EmitCircuitAnnotation",
+    "emitter":"firrtl.LowFirrtlEmitter"
+  },
+  {
+    "class":"firrtl.transforms.BlackBoxTargetDirAnno",
+    "targetDir":"test_run_dir/Hello1437816011"
+  },
+  {
+    "class":"firrtl.options.OutputAnnotationFileAnnotation",
+    "file":"adder"
+  }
+]

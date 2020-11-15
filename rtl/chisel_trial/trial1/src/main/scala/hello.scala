@@ -25,5 +25,27 @@ object Hello {
     println(test1)
     println("Hello world")
     println ((new ChiselStage).emitVerilog(new adder(4)))
+
+    val works = Driver(() => new adder(4)) {
+        a => new adder_test(a)
+    }
+
+    assert(works)
+    println("SUCCESS!!")
   }
+}
+
+class adder_test(c: adder) extends PeekPokeTester(c)
+{
+    println("part I")
+    poke (c.io.a , 15)
+    poke (c.io.b , 1)
+    expect (c.io.res, 0)
+    expect (c.io.carry, 1)
+
+    println("part II")
+    poke (c.io.a , 13)
+    poke (c.io.b , 1)
+    expect (c.io.res, 14)
+    expect (c.io.carry, 0)
 }

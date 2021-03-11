@@ -32,7 +32,9 @@ def javacOptionsVersion(scalaVersion: String): Seq[String] = {
 
 libraryDependencies += "edu.berkeley.cs" %% "chisel3" % "3.2-SNAPSHOT"
 libraryDependencies += "edu.berkeley.cs" %% "chisel-testers2" % "0.1-SNAPSHOT"
+
 Compile / unmanagedResourceDirectories += baseDirectory.value / "../../noc/"
+//Compile / unmanagedResourceDirectories += baseDirectory.value
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
   Resolver.sonatypeRepo("releases")

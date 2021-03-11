@@ -10,6 +10,7 @@ import chisel3.util.experimental.loadMemoryFromFile
 import scala.util.control.Breaks._
 import scala.io.Source
 import java.nio.file.Path
+import scala.math._
 
 class arbiter (num_ports: Int) extends Module
 {
@@ -18,17 +19,30 @@ class arbiter (num_ports: Int) extends Module
         val ready = Input(UInt(num_ports.W))
         val grant = Output(UInt(num_ports.W))
     })
-    val cur_port = RegInit(UInt(num_ports.W), 0.U)
-    if ((io.valid(cur_port)==1.U) && (io.ready(cur_port)==1.U)) 
+    def clog2(x: Int): Int = { require(x > 0); ceil(log(x)/log(2)).toInt }
+    var cur_port = RegInit(UInt(clog2(num_ports).W), 0.U)
+    var rGrant = RegInit(UInt(num_ports.W), 0.U)
+    when ( io.valid(cur_port) === 1.U)
     {
-        io.grant(cur_port):=0.U
-        cur_port := cur_port + 1.U;
+            when (io.ready(cur_port) === 1.U)
+            {
+                rGrant:=0.U
+                when (cur_port === num_ports.U)
+                {
+                    cur_port:=0.U
+                }.otherwise
+                {
+                    cur_port := cur_port + 1.U;
+                }
+            }
+            when (io.grant(cur_port) === 1.U)
+            {
+                rGrant:=0.U
+                rGrant:= rGrant | 1.U << (cur_port)
+            }
+        
     }
-    if ((io.valid(cur_port)==1.U) && (io.grant(cur_port)==0.U))
-    {
-        io.grant(cur_port):=1.U;
-    }
-
+    io.grant:=rGrant;
 
 }
 
@@ -44,21 +58,31 @@ class main_ram(data_width:Int, addr_width:Int ) extends Module
 
     val memFile = new File("mem.bin")
     val fileSize = memFile.length
+    println("fileSize = ", fileSize)
 
     val mem = SyncReadMem(fileSize, UInt(data_width.W))
     loadMemoryFromFile(mem, "mem.bin")
+  
+    /* What is a cleaner way to assign dout on all paths? */
+    when (io.ena===1.U)
+    {
+    
+        when (io.write === 1.U) {mem.write(io.addr,  io.din); io.dout:=DontCare } .otherwise {
+        when (io.write === 0.U) 
+        {
+            io.dout:=mem.read(io.addr)
+        }.otherwise {io.dout:=DontCare}
+        }
 
-    if ((io.ena==1.U) && (io.write==1.U))
-    {
-        mem.write(io.addr,  io.din)
+     
+    }.otherwise {
+    
+        io.dout:=0.U(data_width.W)
     }
-    if ((io.ena==1.U) && (io.write == 0.U))
-    {
-        io.dout := mem.read(io.addr, io.ena.toBool)
-    }
+    
 }
 
-class noc_blackbox(data_width: Int, addr_width:Int, num_ports: Int) extends BlackBox(Map("DATA_WIDTH_MSB" ->(data_width-1), "ADDR_WIDTH_MSB"->(addr_width-1), "NUM_PORTS" -> num_ports )) with HasBlackBoxResource
+class noc(data_width: Int, addr_width:Int, num_ports: Int) extends BlackBox(Map("DATA_WIDTH_MSB" ->(data_width-1), "ADDR_WIDTH_MSB"->(addr_width-1), "NUM_PORTS" -> num_ports )) with HasBlackBoxResource
 {
     addResource("/noc.v")
     addResource("/noc_defs.vh")
@@ -108,7 +132,7 @@ class noc_blackbox_wrap(data_width:Int, addr_width:Int, num_rd_ports:Int, num_wr
         val wr_port_data= Vec(num_wr_ports, Input(UInt(data_width.W)))
         val rd_port_data= Vec(num_rd_ports, Output(UInt(data_width.W)))
     })
-    val tb = Module(new noc_blackbox(data_width, addr_width, num_rd_ports+num_wr_ports))
+    val tb = Module(new noc(data_width, addr_width, num_rd_ports+num_wr_ports))
     tb.io.rst := reset
     tb.io.clk := clock
     /* Inputs */
@@ -253,6 +277,10 @@ object blackbox
         val addr_width:Int=16
         val num_rd_ports:Int = 4
         val num_wr_ports:Int=2
+        
+        println( (new ChiselStage).emitVerilog( new main_ram(data_width, addr_width  )) ) 
+        println( (new ChiselStage).emitVerilog( new arbiter(num_rd_ports+num_wr_ports)) ) 
+
         val works = chisel3.iotesters.Driver ( () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports), "verilator") {
             c=> new noc_blackbox_tester(c, data_width)
         }

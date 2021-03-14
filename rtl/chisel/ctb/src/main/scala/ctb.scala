@@ -1,7 +1,7 @@
 import chisel3._
 import chisel3.util._
-import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
-import chisel3.stage.ChiselStage
+import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester, TesterOptionsManager }
+import chisel3.stage.{ChiselStage,ChiselGeneratorAnnotation}
 import scala.util.matching.Regex
 import java.io.File
 import java.io.PrintWriter
@@ -11,6 +11,10 @@ import scala.util.control.Breaks._
 import scala.io.Source
 import java.nio.file.Path
 import scala.math._
+import java.io.{File, FileWriter, IOException, Writer}
+import java.nio.file.{FileAlreadyExistsException, Files, Paths}
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import scala.util.DynamicVariable
 
 class arbiter (num_ports: Int) extends Module
 {
@@ -169,6 +173,14 @@ class noc_blackbox_wrap(data_width:Int, addr_width:Int, num_rd_ports:Int, num_wr
       io.rd_port_data(2) := tb.io.rd_port2_data
       io.rd_port_data(3) := tb.io.rd_port3_data
 }
+class main_ram_tester(s: main_ram, data_width:Int, addr_width:Int) extends PeekPokeTester(s)
+{
+}
+
+class arbiter_tester(s: arbiter, num_ports:Int ) extends PeekPokeTester(s)
+{
+}
+
 class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int) extends PeekPokeTester(s)
 {
     def write (port:UInt, addr:UInt, data:UInt): UInt = {
@@ -271,20 +283,37 @@ object blackbox
         {
             if(out.isDefined) out.get.close
         }
+        val optionsManagerVar = new DynamicVariable[Option[TesterOptionsManager]](None)
+
+        def optionsManager = optionsManagerVar.value.getOrElse(new TesterOptionsManager)
+
 
         println("BlackBox Hello World")
         val data_width:Int = 16
         val addr_width:Int=16
         val num_rd_ports:Int = 4
         val num_wr_ports:Int=2
-        
+       
+        /*(new chisel3.stage.ChiselStage).execute(
+            Array("-X", "verilog"),
+            Seq(ChiselGeneratorAnnotation(() => new main_ram(data_width,addr_width ))))
+        (new chisel3.stage.ChiselStage).execute(
+            Array("-X", "verilog"),
+            Seq(ChiselGeneratorAnnotation(() => new arbiter(num_rd_ports+num_wr_ports))))
         println( (new ChiselStage).emitVerilog( new main_ram(data_width, addr_width  )) ) 
-        println( (new ChiselStage).emitVerilog( new arbiter(num_rd_ports+num_wr_ports)) ) 
+        println( (new ChiselStage).emitVerilog( new arbiter(num_rd_ports+num_wr_ports)) )  */
+        val main_ram_works = chisel3.iotesters.Driver ( () => new main_ram(data_width,addr_width), "verilator") {
+            c=> new main_ram_tester(c, data_width, addr_width)
+        }
 
-        val works = chisel3.iotesters.Driver ( () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports), "verilator") {
+        val arbiter_works = chisel3.iotesters.Driver ( () => new arbiter(num_rd_ports+num_wr_ports), "verilator") {
+            c=> new arbiter_tester(c, num_rd_ports + num_wr_ports)
+        }
+
+        val noc_works = chisel3.iotesters.Driver ( () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports), "verilator") {
             c=> new noc_blackbox_tester(c, data_width)
         }
-        assert(works)
+        assert(noc_works && arbiter_works && main_ram_works)
         println("Success!!")
     }
 }

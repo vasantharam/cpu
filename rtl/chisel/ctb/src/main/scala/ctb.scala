@@ -267,12 +267,21 @@ object blackbox
             }
         }
         var out = None: Option[FileOutputStream]
+        var addr:Int = 0;
+        var data:Int = 0;
         try 
         {
             out = Some(new FileOutputStream("mem.bin"))
+            out.get.write("@%d\n".format(addr).getBytes())
             arr.foreach 
             {
-                a => out.get.write(a.toShort)
+                 
+                a => 
+                {
+                    data = a.toShort
+                    out.get.write("%d\n".format(data).getBytes())
+                    addr = addr + 1
+                }
             }
         }
         catch
@@ -302,15 +311,15 @@ object blackbox
             Seq(ChiselGeneratorAnnotation(() => new arbiter(num_rd_ports+num_wr_ports))))
         println( (new ChiselStage).emitVerilog( new main_ram(data_width, addr_width  )) ) 
         println( (new ChiselStage).emitVerilog( new arbiter(num_rd_ports+num_wr_ports)) )  */
-        val main_ram_works = chisel3.iotesters.Driver ( () => new main_ram(data_width,addr_width), "verilator") {
+        val main_ram_works = chisel3.iotesters.Driver.execute(Array("--top-name","cpu", "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new main_ram(data_width,addr_width)  ) {
             c=> new main_ram_tester(c, data_width, addr_width)
         }
 
-        val arbiter_works = chisel3.iotesters.Driver ( () => new arbiter(num_rd_ports+num_wr_ports), "verilator") {
+        val arbiter_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"    , "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new arbiter(num_rd_ports+num_wr_ports)) {
             c=> new arbiter_tester(c, num_rd_ports + num_wr_ports)
         }
 
-        val noc_works = chisel3.iotesters.Driver ( () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports), "verilator") {
+        val noc_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"        , "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports) ) {
             c=> new noc_blackbox_tester(c, data_width)
         }
         assert(noc_works && arbiter_works && main_ram_works)

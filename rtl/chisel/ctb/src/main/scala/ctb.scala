@@ -181,17 +181,23 @@ class arbiter_tester(s: arbiter, num_ports:Int ) extends PeekPokeTester(s)
 {
 }
 
-class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int) extends PeekPokeTester(s)
+class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int, num_rd_ports:Int, num_wr_ports:Int) extends PeekPokeTester(s)
 {
     def write (port:UInt, addr:UInt, data:UInt): UInt = {
-        poke (s.io.wr_port_valid(port), 1)
-        poke (s.io.wr_port_addr(port), 0)
-        poke (s.io.wr_port_data(port), 0xab)
+        var vec_wr_port_valid = Array.tabulate(num_wr_ports) { x=>if (port.litValue==BigInt(x)) {println(s"${x.U} ${port} - x");BigInt(1)} else {println(s"${x.U}- x ${port}"); BigInt(0)} }
+        println(s"scala array to poke into vector    ${vec_wr_port_valid.mkString(",")} ${vec_wr_port_valid} ${port}")
+
+        poke (s.io.wr_port_valid, vec_wr_port_valid)
+        var vec_wr_port_addr = Array.tabulate(num_wr_ports) { x=> BigInt(0) }
+        poke (s.io.wr_port_addr, vec_wr_port_addr)
+        var vec_wr_port_data = Array.tabulate(num_wr_ports) { x=> BigInt(0xab) }
+        poke (s.io.wr_port_data, vec_wr_port_data)
         breakable { while(true)
         {
             step(1)
-            val ready = peek(s.io.wr_port_ready(port))
-            if (ready.U==1.U) break
+            var ready = peek(s.io.wr_port_ready)
+            println(s"${ready.mkString(",")} - ready")
+//            if (ready(port).U==1.U) break
         } }
         return 0.U
     }
@@ -320,7 +326,7 @@ object blackbox
         }
 
         val noc_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"        , "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports) ) {
-            c=> new noc_blackbox_tester(c, data_width)
+            c=> new noc_blackbox_tester(c, data_width, num_rd_ports,num_wr_ports)
         }
         assert(noc_works && arbiter_works && main_ram_works)
         println("Success!!")

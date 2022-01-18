@@ -39,13 +39,23 @@ class arbiter (num_ports: Int) extends Module
                     cur_port := cur_port + 1.U;
                 }
             }
-            when (io.grant(cur_port) === 1.U)
+            when (io.grant(cur_port) === 0.U)
             {
                 rGrant:=0.U
                 rGrant:= rGrant | 1.U << (cur_port)
             }
         
+    }.otherwise
+    {
+            when (cur_port === num_ports.U)
+            {
+                cur_port:=0.U
+            }.otherwise
+            {
+                cur_port := cur_port + 1.U;
+            }
     }
+
     io.grant:=rGrant;
 
 }
@@ -183,10 +193,12 @@ class arbiter_tester(s: arbiter, num_ports:Int ) extends PeekPokeTester(s)
 
 class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int) extends PeekPokeTester(s)
 {
-    def write (port:UInt, addr:UInt, data:UInt): UInt = {
-        poke (s.io.wr_port_valid(port), 1)
-        poke (s.io.wr_port_addr(port), 0)
-        poke (s.io.wr_port_data(port), 0xab)
+    def write (port:Int, addr:UInt, data:UInt): UInt = {
+        var wr_port_valid = Array (peek (s.io.wr_port_valid(0)), peek(s.io.wr_port_valid(1)) )
+        wr_port_valid(port) = 1
+        poke (s.io.wr_port_valid, wr_port_valid)
+//        poke (s.io.wr_port_addr(port), 0)
+//        poke (s.io.wr_port_data(port), 0xab)
         breakable { while(true)
         {
             step(1)
@@ -214,13 +226,13 @@ class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int) extends PeekPok
     // write same address through port0, read through port0 check data matches
     // TODO: loop it up with a rand for addr. 
     // randomize data pattern
-    write(0.U, 0.U, 0xab.U) 
-    var read_data = read(0.U, 0.U)
+    write(0, 0.U, 0xab.U) 
+//    var read_data = read(0.U, 0.U)
 //    assert(read_data == 0xab.U)
 
     // write through port1, read port2, check data matches
-    write(1.U, 0.U, 0xec.U) 
-    read_data = read(2.U, 0.U)
+    write(1, 0.U, 0xec.U) 
+//    read_data = read(2.U, 0.U)
 //    assert(read_data == 0xec.U)
     // sweep write pattern, sweep read pattern check.
     //TBD
@@ -267,12 +279,21 @@ object blackbox
             }
         }
         var out = None: Option[FileOutputStream]
+        var addr:Int = 0;
+        var data:Int = 0;
         try 
         {
             out = Some(new FileOutputStream("mem.bin"))
+            out.get.write("@%d\n".format(addr).getBytes())
             arr.foreach 
             {
-                a => out.get.write(a.toShort)
+                 
+                a => 
+                {
+                    data = a.toShort
+                    out.get.write("%d\n".format(data).getBytes())
+                    addr = addr + 1
+                }
             }
         }
         catch
@@ -302,15 +323,15 @@ object blackbox
             Seq(ChiselGeneratorAnnotation(() => new arbiter(num_rd_ports+num_wr_ports))))
         println( (new ChiselStage).emitVerilog( new main_ram(data_width, addr_width  )) ) 
         println( (new ChiselStage).emitVerilog( new arbiter(num_rd_ports+num_wr_ports)) )  */
-        val main_ram_works = chisel3.iotesters.Driver ( () => new main_ram(data_width,addr_width), "verilator") {
+        val main_ram_works = chisel3.iotesters.Driver.execute(Array("--top-name","cpu", "--target-dir", "cpu",  "--backend-name", "verilator"), () => new main_ram(data_width,addr_width)  ) {
             c=> new main_ram_tester(c, data_width, addr_width)
         }
 
-        val arbiter_works = chisel3.iotesters.Driver ( () => new arbiter(num_rd_ports+num_wr_ports), "verilator") {
+        val arbiter_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"    , "--target-dir", "cpu",  "--backend-name", "verilator"), () => new arbiter(num_rd_ports+num_wr_ports)) {
             c=> new arbiter_tester(c, num_rd_ports + num_wr_ports)
         }
 
-        val noc_works = chisel3.iotesters.Driver ( () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports), "verilator") {
+        val noc_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"        , "--target-dir", "cpu",  "--backend-name", "verilator"), () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports) ) {
             c=> new noc_blackbox_tester(c, data_width)
         }
         assert(noc_works && arbiter_works && main_ram_works)

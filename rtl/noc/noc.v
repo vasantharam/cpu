@@ -29,7 +29,7 @@ Ports
 
 `include "noc_defs.vh"
 
-module noc(clk, 
+module noc( 
         wr_port0_valid, wr_port0_ready, wr_port0_data, wr_port0_addr,
           wr_port1_valid, wr_port1_ready, wr_port1_data, wr_port1_addr,
           
@@ -65,18 +65,21 @@ reg [ADDR_WIDTH_MSB:0] wr_addr;
 reg [DATA_WIDTH_MSB:0] rd_data;
 reg [ADDR_WIDTH_MSB:0] rd_addr;
 
-reg grant[NUM_PORTS];
+reg [NUM_PORTS-1:0] grant;
 reg [ADDR_WIDTH_MSB:0] addr;
 reg [DATA_WIDTH_MSB:0] din;
 reg [DATA_WIDTH_MSB:0] dout;
 reg ena;
 reg current_state;
+reg write;
+reg rd_granted;
+reg ready;
 genvar loop;
 
-main_ram i_ram(clk, write, addr, din, dout, ena);
+main_ram i_ram(clk, rst, write, addr, din, dout, ena);
 
                          
-arbiter a( {wr_port0_valid, wr_port1_valid, rd_port0_valid, rd_port1_valid, rd_port2_valid, rd_port3_valid },
+arbiter a( clk, rst, {wr_port0_valid, wr_port1_valid, rd_port0_valid, rd_port1_valid, rd_port2_valid, rd_port3_valid },
           {wr_port0_ready, wr_port1_ready, rd_port0_ready, rd_port1_ready, rd_port2_ready, rd_port3_ready },
           grant );                         
 
@@ -87,6 +90,16 @@ assign rd_port0_data = (grant[2]? rd_data:0);
 assign rd_port1_data = (grant[3]? rd_data:0);
 assign rd_port2_data = (grant[4]? rd_data:0);
 assign rd_port3_data = (grant[5]? rd_data:0);
+assign rd_granted = (grant[0] || grant[1])? 0: 1;
+
+assign wr_port0_ready = (grant[0] && ready) ?1:0;
+assign wr_port1_ready = (grant[1] && ready) ?1:0;
+
+
+assign rd_port0_ready = (grant[2] && ready) ?1:0;
+assign rd_port1_ready = (grant[3] && ready) ?1:0;
+assign rd_port2_ready = (grant[4] && ready) ?1:0;
+assign rd_port3_ready = (grant[5] && ready) ?1:0;
 
 function mem_access(cur_addr, cur_data, wr, next_state);
     write<=wr;
@@ -97,7 +110,7 @@ function mem_access(cur_addr, cur_data, wr, next_state);
 endfunction
 
 function set_response();
-    if (rd) rd_data <= dout;
+    if (rd_granted) rd_data <= dout;
     ready <= 1;
     current_state <= `ST_NOC_IDLE;
 endfunction
@@ -112,7 +125,6 @@ begin
      begin
      ena<=0;
      
-     switch(current_state);
      case(current_state)
      `ST_NOC_IDLE:
         begin          

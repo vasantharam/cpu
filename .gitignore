@@ -82,4 +82,18 @@ rtl/fifo/tb.v
 webtalk*
 *_summary.xml
 *_usage.xml
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+.history
+.cache
+.lib/
+.bsp/
+out.log
+**/test_run_dir
+test_run_dir/
+*.bin
 

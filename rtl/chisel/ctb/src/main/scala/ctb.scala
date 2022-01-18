@@ -191,19 +191,32 @@ class arbiter_tester(s: arbiter, num_ports:Int ) extends PeekPokeTester(s)
 {
 }
 
-class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int) extends PeekPokeTester(s)
+class noc_blackbox_tester(s: noc_blackbox_wrap, data_width: Int, num_rd_ports:Int, num_wr_ports:Int) extends PeekPokeTester(s)
 {
+<<<<<<< HEAD
     def write (port:Int, addr:UInt, data:UInt): UInt = {
         var wr_port_valid = Array (peek (s.io.wr_port_valid(0)), peek(s.io.wr_port_valid(1)) )
         wr_port_valid(port) = 1
         poke (s.io.wr_port_valid, wr_port_valid)
 //        poke (s.io.wr_port_addr(port), 0)
 //        poke (s.io.wr_port_data(port), 0xab)
+=======
+    def write (port:UInt, addr:UInt, data:UInt): UInt = {
+        var vec_wr_port_valid = Array.tabulate(num_wr_ports) { x=>if (port.litValue==BigInt(x)) {println(s"${x.U} ${port} - x");BigInt(1)} else {println(s"${x.U}- x ${port}"); BigInt(0)} }
+        println(s"scala array to poke into vector    ${vec_wr_port_valid.mkString(",")} ${vec_wr_port_valid} ${port}")
+
+        poke (s.io.wr_port_valid, vec_wr_port_valid)
+        var vec_wr_port_addr = Array.tabulate(num_wr_ports) { x=> BigInt(0) }
+        poke (s.io.wr_port_addr, vec_wr_port_addr)
+        var vec_wr_port_data = Array.tabulate(num_wr_ports) { x=> BigInt(0xab) }
+        poke (s.io.wr_port_data, vec_wr_port_data)
+>>>>>>> 95166fa4a80a95bb02f39a1d746976edb5983d7b
         breakable { while(true)
         {
             step(1)
-            val ready = peek(s.io.wr_port_ready(port))
-            if (ready.U==1.U) break
+            var ready = peek(s.io.wr_port_ready)
+            println(s"${ready.mkString(",")} - ready")
+//            if (ready(port).U==1.U) break
         } }
         return 0.U
     }
@@ -323,6 +336,7 @@ object blackbox
             Seq(ChiselGeneratorAnnotation(() => new arbiter(num_rd_ports+num_wr_ports))))
         println( (new ChiselStage).emitVerilog( new main_ram(data_width, addr_width  )) ) 
         println( (new ChiselStage).emitVerilog( new arbiter(num_rd_ports+num_wr_ports)) )  */
+<<<<<<< HEAD
         val main_ram_works = chisel3.iotesters.Driver.execute(Array("--top-name","cpu", "--target-dir", "cpu",  "--backend-name", "verilator"), () => new main_ram(data_width,addr_width)  ) {
             c=> new main_ram_tester(c, data_width, addr_width)
         }
@@ -333,6 +347,18 @@ object blackbox
 
         val noc_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"        , "--target-dir", "cpu",  "--backend-name", "verilator"), () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports) ) {
             c=> new noc_blackbox_tester(c, data_width)
+=======
+        val main_ram_works = chisel3.iotesters.Driver.execute(Array("--top-name","cpu", "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new main_ram(data_width,addr_width)  ) {
+            c=> new main_ram_tester(c, data_width, addr_width)
+        }
+
+        val arbiter_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"    , "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new arbiter(num_rd_ports+num_wr_ports)) {
+            c=> new arbiter_tester(c, num_rd_ports + num_wr_ports)
+        }
+
+        val noc_works = chisel3.iotesters.Driver.execute (Array("--top-name","cpu"        , "--target-dir", "cpu_run_dir",  "--backend-name", "verilator"), () => new noc_blackbox_wrap(data_width,addr_width,num_rd_ports,num_wr_ports) ) {
+            c=> new noc_blackbox_tester(c, data_width, num_rd_ports,num_wr_ports)
+>>>>>>> 95166fa4a80a95bb02f39a1d746976edb5983d7b
         }
         assert(noc_works && arbiter_works && main_ram_works)
         println("Success!!")
